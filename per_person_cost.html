@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resort Cost Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom slider track */
+        input[type=range]::-webkit-slider-runnable-track {
+            background: #e5e7eb; /* gray-200 */
+        }
+        input[type=range]::-moz-range-track {
+            background: #e5e7eb;
+        }
+        /* Custom slider thumb */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6; /* blue-500 */
+            cursor: pointer;
+            border-radius: 50%;
+            margin-top: -6px;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+        
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-slate-900">Resort Cost Analysis</h1>
+            <p class="text-slate-600 mt-2">Price per person decreases as more people join.</p>
+        </div>
+
+        <!-- Chart Container -->
+        <div class="mb-8">
+            <canvas id="costChart"></canvas>
+        </div>
+
+        <!-- Interactive Calculator -->
+        <div class="bg-slate-100 p-6 rounded-xl">
+            <div class="grid md:grid-cols-2 gap-6 items-center">
+                <div>
+                    <label for="peopleSlider" class="block text-lg font-semibold mb-2 text-slate-700">Number of People: <span id="peopleCount" class="font-bold text-blue-600">40</span></label>
+                    <input id="peopleSlider" type="range" min="20" max="100" value="40" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div class="text-center bg-white p-4 rounded-lg shadow-inner">
+                    <p class="text-lg text-slate-600">Price Per Person</p>
+                    <p id="pricePerPerson" class="text-4xl font-bold text-slate-800 tracking-tight">$747.50</p>
+                    <p class="text-sm text-slate-500 mt-1">Total: <span id="totalPrice" class="font-medium">$29,900.00</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Explanation of Costs -->
+        <div class="mt-8 text-center text-sm text-slate-500 border-t pt-4">
+             <p><span class="font-semibold">Cost Model:</span> Based on your data, the cost structure was determined to be a <span class="font-medium">$10,100 fixed cost</span> plus a <span class="font-medium">$495 per-person variable cost</span> for meals and other expenses.</p>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- 1. DEFINE COST PARAMETERS ---
+            // Based on the provided data points (30 people for $24950, 40 for $29900),
+            // we can derive the underlying cost structure.
+            // Change in cost: $29900 - $24950 = $4950
+            // Change in people: 40 - 30 = 10
+            // Variable cost per person (meals): $4950 / 10 = $495
+            // Fixed cost (buyout): $24950 - (30 * $495) = $10100
+            const FIXED_COST = 10100;
+            const MEAL_COST_PER_PERSON = 495;
+
+            // --- 2. GET DOM ELEMENTS ---
+            const slider = document.getElementById('peopleSlider');
+            const peopleCountEl = document.getElementById('peopleCount');
+            const pricePerPersonEl = document.getElementById('pricePerPerson');
+            const totalPriceEl = document.getElementById('totalPrice');
+            const ctx = document.getElementById('costChart').getContext('2d');
+
+            // --- 3. UTILITY FUNCTIONS ---
+            const calculatePricePerPerson = (people) => {
+                if (people <= 0) return 0;
+                const totalCost = FIXED_COST + (people * MEAL_COST_PER_PERSON);
+                return totalCost / people;
+            };
+
+            const formatCurrency = (amount) => {
+                return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+            };
+
+            // --- 4. CHART DATA GENERATION ---
+            const chartLabels = [];
+            const chartDataPoints = [];
+            // Generate data for the chart's x and y axes
+            for (let i = 20; i <= 100; i++) {
+                chartLabels.push(i);
+                chartDataPoints.push(calculatePricePerPerson(i));
+            }
+
+            // --- 5. CHART.JS INITIALIZATION ---
+            const costChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Price Per Person',
+                        data: chartDataPoints,
+                        borderColor: 'rgb(59, 130, 246)', // blue-500
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4, // Makes the line smooth
+                        fill: true,
+                        pointRadius: 0, // Hide points on the main line
+                        pointHoverRadius: 6,
+                    }, {
+                        // This dataset is for the single highlighted point
+                        label: 'Selected Point',
+                        data: [], // Initially empty
+                        borderColor: 'rgb(239, 68, 68)', // red-500
+                        backgroundColor: 'rgb(239, 68, 68)',
+                        pointRadius: 8,
+                        pointHoverRadius: 10,
+                        type: 'bubble', // Use bubble to show a single point
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            intersect: false,
+                            mode: 'index',
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += formatCurrency(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Price Per Person ($)',
+                                font: { size: 14 }
+                            },
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return '$' + value.toFixed(0);
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Number of People',
+                                font: { size: 14 }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- 6. EVENT LISTENER & UI UPDATE LOGIC ---
+            const updateUI = (people) => {
+                // Calculate costs
+                const pricePerPerson = calculatePricePerPerson(people);
+                const totalCost = FIXED_COST + (people * MEAL_COST_PER_PERSON);
+
+                // Update text displays
+                peopleCountEl.textContent = people;
+                pricePerPersonEl.textContent = formatCurrency(pricePerPerson);
+                totalPriceEl.textContent = formatCurrency(totalCost);
+                
+                // Update the chart's highlighted point
+                // The second dataset (index 1) is used for the highlight
+                costChart.data.datasets[1].data = [{
+                    x: people,
+                    y: pricePerPerson,
+                    r: 5 // radius for bubble chart point
+                }];
+                costChart.update();
+            };
+
+            // Attach event listener to the slider
+            slider.addEventListener('input', (event) => {
+                updateUI(event.target.value);
+            });
+
+            // --- 7. INITIAL UI RENDER ---
+            // Trigger the initial calculation and render on page load
+            updateUI(slider.value);
+        });
+    </script>
+</body>
+</html>
